@@ -5,7 +5,7 @@
   "description": "BranDive SocialFlow AI - Multi-platform social media campaign automation and publishing SaaS",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && node scripts/seed.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push",
