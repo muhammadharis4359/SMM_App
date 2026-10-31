@@ -5,8 +5,11 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { Building2, Save, CheckCircle2, ShieldAlert, Sparkles, Globe, Target, Volume2 } from 'lucide-react';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function BrandProfilePage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -29,7 +32,7 @@ export default function BrandProfilePage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -37,7 +40,17 @@ export default function BrandProfilePage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
 
@@ -72,6 +85,14 @@ export default function BrandProfilePage() {
 
   useEffect(() => {
     fetchProfile();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchProfile(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -130,6 +151,12 @@ export default function BrandProfilePage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchProfile(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length}
           onOpenNotifications={() => setIsNotifOpen(true)}
         />

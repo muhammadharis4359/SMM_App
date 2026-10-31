@@ -6,8 +6,11 @@ import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { Sparkles, Calendar, Layers, CheckCircle2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function CampaignsStudioPage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -27,7 +30,7 @@ export default function CampaignsStudioPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -35,9 +38,31 @@ export default function CampaignsStudioPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
+
+        // Tailor default brief inputs to the active entity
+        if (activeWs.name.toLowerCase().includes('learn2growrich')) {
+          setCampaignName('Wealth Freedom & Mindset Masterclass 2026');
+          setNotes('Focus on financial habits, wealth mindset secrets, passive income frameworks, and learn2growrich academy enrollment.');
+          setObjective('ENGAGEMENT');
+        } else {
+          setCampaignName('Digital Growth Accelerate 2026');
+          setNotes('Focus on full-stack web engineering, social media autopilot systems, and BranDive agency capabilities.');
+          setObjective('AWARENESS');
+        }
+
         const res = await fetch(`/api/v1/workspaces/${activeWs.id}/campaigns`);
         const data = await res.json();
         setCampaigns(data.campaigns || []);
@@ -53,6 +78,14 @@ export default function CampaignsStudioPage() {
 
   useEffect(() => {
     fetchCampaigns();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchCampaigns(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, []);
 
   const handlePlatformToggle = (platform: string) => {
@@ -108,6 +141,12 @@ export default function CampaignsStudioPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchCampaigns(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length}
           onOpenNotifications={() => setIsNotifOpen(true)}
         />

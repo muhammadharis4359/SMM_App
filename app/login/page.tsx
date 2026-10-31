@@ -37,6 +37,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleAdminFill = () => {
+    setEmail('admin@brandivemedsols.com');
+    setPassword('Password123!');
+  };
+
   const handleDemoFill = () => {
     setEmail('demo@brandivemedsols.com');
     setPassword('Password123!');
@@ -153,15 +158,37 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Demo Credentials Quick-Fill Button */}
+        {/* Credentials Quick-Fill Buttons */}
         <div
           style={{
             marginTop: '22px',
             paddingTop: '18px',
             borderTop: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
             textAlign: 'center',
           }}
         >
+          <button
+            type="button"
+            onClick={handleAdminFill}
+            className="btn-cyber-gradient"
+            style={{
+              width: '100%',
+              fontSize: '0.82rem',
+              padding: '9px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}
+          >
+            <Sparkles size={15} />
+            <span>Fill Production Admin (admin@brandivemedsols.com)</span>
+          </button>
+
           <button
             type="button"
             onClick={handleDemoFill}
@@ -173,10 +200,9 @@ export default function LoginPage() {
               borderColor: 'var(--border-brand)',
             }}
           >
-            <Sparkles size={14} color="var(--brandive-blue)" />
-            <span>Fill Demo Account (demo@brandivemedsols.com)</span>
+            <span>Fill Demo User (demo@brandivemedsols.com)</span>
           </button>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             Password: <code>Password123!</code>
           </p>
         </div>

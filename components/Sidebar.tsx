@@ -48,29 +48,55 @@ export default function Sidebar({ currentWorkspace, onTogglePause, isPausing }: 
     { label: 'Settings', href: '/billing', icon: Settings },
   ];
 
-  const connectedAccounts = [
-    {
-      name: 'Instagram',
-      handle: '@brandive.medsols',
-      icon: Instagram,
-      iconColor: '#F43F5E',
-      iconBg: 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
-    },
-    {
-      name: 'Facebook Page',
-      handle: 'BranDive Media',
-      icon: Facebook,
-      iconColor: '#3B82F6',
-      iconBg: 'linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)',
-    },
-    {
-      name: 'LinkedIn Page',
-      handle: 'BranDive Agency',
-      icon: Linkedin,
-      iconColor: '#0EA5E9',
-      iconBg: 'linear-gradient(135deg, #0284C7 0%, #38BDF8 100%)',
-    },
-  ];
+  const isClientWorkspace = currentWorkspace.name.toLowerCase().includes('learn2growrich');
+
+  const connectedAccounts = isClientWorkspace
+    ? [
+        {
+          name: 'Instagram',
+          handle: '@learn2growrich',
+          icon: Instagram,
+          iconColor: '#F43F5E',
+          iconBg: 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
+        },
+        {
+          name: 'Facebook Community',
+          handle: 'learn2growrich Academy',
+          icon: Facebook,
+          iconColor: '#3B82F6',
+          iconBg: 'linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)',
+        },
+        {
+          name: 'LinkedIn Page',
+          handle: 'learn2growrich',
+          icon: Linkedin,
+          iconColor: '#0EA5E9',
+          iconBg: 'linear-gradient(135deg, #0284C7 0%, #38BDF8 100%)',
+        },
+      ]
+    : [
+        {
+          name: 'Instagram',
+          handle: '@brandivemedsols',
+          icon: Instagram,
+          iconColor: '#F43F5E',
+          iconBg: 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
+        },
+        {
+          name: 'Facebook Page',
+          handle: 'BranDive Media',
+          icon: Facebook,
+          iconColor: '#3B82F6',
+          iconBg: 'linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)',
+        },
+        {
+          name: 'LinkedIn Page',
+          handle: 'BranDive Agency',
+          icon: Linkedin,
+          iconColor: '#0EA5E9',
+          iconBg: 'linear-gradient(135deg, #0284C7 0%, #38BDF8 100%)',
+        },
+      ];
 
   return (
     <aside
@@ -129,6 +155,49 @@ export default function Sidebar({ currentWorkspace, onTogglePause, isPausing }: 
           <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 400 }}>
             AI Social Media Autopilot
           </div>
+        </div>
+      </div>
+
+      {/* Active Entity Pill */}
+      <div style={{ padding: '0 16px 14px' }}>
+        <div
+          style={{
+            padding: '7px 10px',
+            borderRadius: '8px',
+            backgroundColor: isClientWorkspace ? 'rgba(168, 85, 247, 0.12)' : 'rgba(14, 136, 211, 0.12)',
+            border: `1px solid ${isClientWorkspace ? 'rgba(168, 85, 247, 0.3)' : 'rgba(14, 136, 211, 0.3)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontSize: '0.66rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
+              {isClientWorkspace ? 'Client Workspace' : 'Agency HQ'}
+            </div>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                color: isClientWorkspace ? '#C084FC' : '#38BDF8',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {currentWorkspace.name}
+            </div>
+          </div>
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#10B981',
+              boxShadow: '0 0 6px #10B981',
+              flexShrink: 0,
+            }}
+          />
         </div>
       </div>
 

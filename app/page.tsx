@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import Link from 'next/link';
+import { getActiveWorkspace, setActiveWorkspace } from '@/lib/clientWorkspace';
 import {
   CalendarDays,
   Sparkles,
@@ -33,6 +34,8 @@ import {
 } from 'lucide-react';
 
 export default function DashboardOverviewPage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -51,9 +54,9 @@ export default function DashboardOverviewPage() {
   // AI Assistant input state
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([
-    'Carousel: 5 productivity hacks for marketers',
-    'Reel: Day in the life of a creative team',
-    'Post: Industry insight with a strong hook',
+    'Carousel: 5 productivity hacks for modern marketing agencies',
+    'Reel: How AI autopilot schedules multi-platform campaigns',
+    'Post: Why leading brands plan once and publish programmatically',
   ]);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
 
@@ -63,7 +66,7 @@ export default function DashboardOverviewPage() {
   const [performanceTimeframe, setPerformanceTimeframe] = useState('This Week');
 
   // Load real workspace and notifications
-  const fetchWorkspace = async () => {
+  const fetchWorkspace = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -71,9 +74,34 @@ export default function DashboardOverviewPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
+
+        // Customize AI suggestions based on whether the entity is learn2growrich or BranDive
+        if (activeWs.name.toLowerCase().includes('learn2growrich')) {
+          setAiSuggestions([
+            'Carousel: 5 financial habits that separate the 1% from everyone else',
+            'Reel: Why your income is not your wealth (Equity vs Salary)',
+            'Post: The $10K/month skill stack roadmap for 2026',
+          ]);
+        } else {
+          setAiSuggestions([
+            'Carousel: 5 productivity hacks for modern marketing agencies',
+            'Reel: How AI autopilot schedules multi-platform campaigns',
+            'Post: Why leading brands plan once and publish programmatically',
+          ]);
+        }
 
         const notifRes = await fetch(`/api/v1/workspaces/${activeWs.id}/notifications`);
         const notifData = await notifRes.json();
@@ -86,6 +114,14 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     fetchWorkspace();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchWorkspace(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, []);
 
   // Emergency Pause Handler
@@ -400,6 +436,12 @@ export default function DashboardOverviewPage() {
         {/* Top Header Matching Cyber Magic Layout */}
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchWorkspace(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length || 3}
           onOpenNotifications={() => setIsNotifOpen(true)}
           onManualSync={handleManualSync}

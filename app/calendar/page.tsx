@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 import {
   CalendarDays,
   List,
@@ -20,6 +21,8 @@ import {
 } from 'lucide-react';
 
 export default function CalendarPage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -39,7 +42,7 @@ export default function CalendarPage() {
   const [actionNotice, setActionNotice] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fetchCalendar = async () => {
+  const fetchCalendar = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -47,7 +50,17 @@ export default function CalendarPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
         const url = `/api/v1/workspaces/${activeWs.id}/calendar?platform=${filterPlatform}&status=${filterStatus}`;
@@ -68,6 +81,14 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchCalendar();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchCalendar(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, [filterPlatform, filterStatus]);
 
   const handleApprove = async (id: string) => {
@@ -177,6 +198,12 @@ export default function CalendarPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchCalendar(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length}
           onOpenNotifications={() => setIsNotifOpen(true)}
         />

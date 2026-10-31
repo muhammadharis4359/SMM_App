@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 import {
   Share2,
   CheckCircle2,
@@ -16,6 +17,8 @@ import {
 } from 'lucide-react';
 
 export default function IntegrationsPage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -27,12 +30,12 @@ export default function IntegrationsPage() {
   const [availablePlatforms, setAvailablePlatforms] = useState<any[]>([]);
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState('META_IG');
-  const [accountHandle, setAccountHandle] = useState('@brandive_channel');
+  const [accountHandle, setAccountHandle] = useState('@brandivemedsols');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
-  const fetchIntegrations = async () => {
+  const fetchIntegrations = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -40,9 +43,25 @@ export default function IntegrationsPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
+
+        if (activeWs.name.toLowerCase().includes('learn2growrich')) {
+          setAccountHandle('@learn2growrich');
+        } else {
+          setAccountHandle('@brandivemedsols');
+        }
 
         const res = await fetch(`/api/v1/workspaces/${activeWs.id}/integrations`);
         const data = await res.json();
@@ -60,6 +79,14 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     fetchIntegrations();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchIntegrations(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, []);
 
   const handleConnect = async (e: React.FormEvent) => {
@@ -122,6 +149,12 @@ export default function IntegrationsPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchIntegrations(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length}
           onOpenNotifications={() => setIsNotifOpen(true)}
         />

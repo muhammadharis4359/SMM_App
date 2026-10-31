@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { Video, Sparkles, CheckCircle2, Clock, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function YouTubeStudioPage() {
   const [workspace, setWorkspace] = useState<any>({
@@ -34,7 +35,7 @@ export default function YouTubeStudioPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      const activeWs = getActiveWorkspace(meData.workspaces);
       if (activeWs) {
         setWorkspace(activeWs);
 

@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { BarChart3, TrendingUp, Users, Heart, MessageSquare, Eye, ExternalLink, Download } from 'lucide-react';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function AnalyticsPage() {
   const [workspace, setWorkspace] = useState<any>({
@@ -27,7 +28,7 @@ export default function AnalyticsPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      const activeWs = getActiveWorkspace(meData.workspaces);
       if (activeWs) {
         setWorkspace(activeWs);
 

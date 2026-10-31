@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { FolderOpen, Upload, Image as ImageIcon, Video, Tag, CheckCircle2, Eye, X } from 'lucide-react';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function AssetLibraryPage() {
   const [workspace, setWorkspace] = useState<any>({
@@ -39,7 +40,7 @@ export default function AssetLibraryPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      const activeWs = getActiveWorkspace(meData.workspaces);
       if (activeWs) {
         setWorkspace(activeWs);
 

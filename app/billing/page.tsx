@@ -5,8 +5,11 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { CreditCard, CheckCircle2, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { getActiveWorkspace } from '@/lib/clientWorkspace';
 
 export default function BillingPage() {
+  const [allWorkspaces, setAllWorkspaces] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>({
     id: '',
     name: 'BranDive Media Solutions',
@@ -19,7 +22,7 @@ export default function BillingPage() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
-  const fetchUsage = async () => {
+  const fetchUsage = async (targetId?: string) => {
     try {
       const meRes = await fetch('/api/v1/me');
       if (meRes.status === 401) {
@@ -27,7 +30,17 @@ export default function BillingPage() {
         return;
       }
       const meData = await meRes.json();
-      const activeWs = meData.workspaces[0];
+      setAllWorkspaces(meData.workspaces || []);
+      setCurrentUser(meData.user || null);
+
+      let activeWs = null;
+      if (targetId) {
+        activeWs = meData.workspaces?.find((w: any) => w.id === targetId);
+      }
+      if (!activeWs) {
+        activeWs = getActiveWorkspace(meData.workspaces);
+      }
+
       if (activeWs) {
         setWorkspace(activeWs);
 
@@ -46,6 +59,14 @@ export default function BillingPage() {
 
   useEffect(() => {
     fetchUsage();
+
+    const handleWsChange = (e: any) => {
+      if (e.detail?.workspaceId) {
+        fetchUsage(e.detail.workspaceId);
+      }
+    };
+    window.addEventListener('socialflow_ws_changed', handleWsChange);
+    return () => window.removeEventListener('socialflow_ws_changed', handleWsChange);
   }, []);
 
   const plans = [
@@ -114,6 +135,12 @@ export default function BillingPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Header
           currentWorkspace={workspace}
+          allWorkspaces={allWorkspaces}
+          user={currentUser}
+          onSelectWorkspace={(ws) => {
+            setWorkspace(ws);
+            fetchUsage(ws.id);
+          }}
           unreadNotificationsCount={notifications.filter((n) => !n.read).length}
           onOpenNotifications={() => setIsNotifOpen(true)}
         />
