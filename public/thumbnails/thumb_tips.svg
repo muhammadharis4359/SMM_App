@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200" fill="none">
+  <rect width="300" height="200" rx="8" fill="#1C1813"/>
+  <rect x="70" y="45" width="160" height="110" rx="6" fill="#2E2419" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="90" y="65" width="120" height="24" rx="4" fill="#F59E0B" fill-opacity="0.2"/>
+  <text x="150" y="82" fill="#FBBF24" font-family="Lexend, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="2">TIPS</text>
+  <rect x="90" y="105" width="120" height="6" rx="2" fill="#785E39"/>
+  <rect x="90" y="120" width="80" height="6" rx="2" fill="#785E39"/>
+</svg>

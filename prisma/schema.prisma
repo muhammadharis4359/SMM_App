@@ -1,0 +1,371 @@
+// BranDive SocialFlow AI Prisma Schema
+// Standard schema supporting multi-tenant workspaces, brand profiles, asset libraries,
+// AI campaigns, content calendar, approvals, durable publish jobs, and audit logs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  passwordHash  String
+  displayName   String
+  authProvider  String            @default("LOCAL")
+  status        String            @default("ACTIVE") // ACTIVE, SUSPENDED, PENDING
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  memberships   WorkspaceMember[]
+  approvalEvents ApprovalEvent[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id              String            @id @default(uuid())
+  name            String
+  ownerUserId     String
+  timezone        String            @default("UTC")
+  locale          String            @default("en-US")
+  approvalMode    String            @default("MANUAL") // MANUAL, CAMPAIGN, AUTO_PUBLISH
+  emergencyPaused Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  members         WorkspaceMember[]
+  subscriptions   Subscription[]
+  usageRecords    UsageRecord[]
+  brandProfiles   BrandProfile[]
+  brandAssets     BrandAsset[]
+  socialAccounts  SocialAccount[]
+  campaigns       Campaign[]
+  contentItems    ContentItem[]
+  publishJobs     PublishJob[]
+  aiRuns          AIRun[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        String    @default("MEMBER") // OWNER, ADMIN, MEMBER, VIEWER
+  invitedBy   String?
+  joinedAt    DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Plan {
+  id           String         @id // basic, diamond, premium
+  name         String
+  description  String?
+  featuresJson String         // JSON array of included features
+  quotasJson   String         // JSON dictionary of limits (e.g. maxWorkspaces, maxAccounts, maxAIRuns)
+  priceMonthly Decimal        @default(0.0)
+  active       Boolean        @default(true)
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid())
+  workspaceId        String    @unique
+  planId             String
+  status             String    @default("ACTIVE") // TRIAL, ACTIVE, PAST_DUE, CANCELLED
+  billingProviderRef String?
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan               Plan      @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model UsageRecord {
+  id           String    @id @default(uuid())
+  workspaceId  String
+  featureKey   String    // AI_GENERATION, POST_PUBLISH, STORAGE_BYTES, VIDEO_MINUTES
+  quantity     Int       @default(1)
+  periodStart  DateTime
+  periodEnd    DateTime
+  metadataJson String?
+  createdAt    DateTime  @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, featureKey, periodStart])
+  @@map("usage_records")
+}
+
+model BrandProfile {
+  id                String    @id @default(uuid())
+  workspaceId       String    @unique
+  brandName         String
+  website           String?
+  industry          String
+  servicesJson      String    @default("[]") // products / services offered
+  audienceJson      String    @default("{}") // target demographic, geography
+  toneJson          String    @default("[]") // tone keywords (e.g. Professional, Authoritative, Energetic)
+  language          String    @default("en")
+  goalsJson         String    @default("[]") // awareness, leads, engagement, authority
+  ctaPreferences    String?
+  offersJson        String    @default("[]") // active promotions / value propositions
+  restrictionsJson  String    @default("[]") // words, claims, competitor names to avoid
+  complianceNotes   String?   // required disclosures / legal disclaimers
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("brand_profiles")
+}
+
+model BrandAsset {
+  id               String         @id @default(uuid())
+  workspaceId      String
+  uploadedBy       String
+  filename         String
+  storageKey       String         // relative or absolute path / S3 key
+  fileType         String         // IMAGE, VIDEO, LOGO, DOCUMENT
+  mimeType         String
+  sizeBytes        Int
+  checksum         String?
+  dimensionsJson   String?        // { width, height }
+  durationSeconds  Float?
+  category         String         @default("GENERAL") // LOGO, PRODUCT, LIFESTYLE, PROMO, VIDEO
+  tagsJson         String         @default("[]")
+  rightsJson       String?        // ownership, license expiry
+  processingStatus String         @default("READY") // PROCESSING, READY, FAILED
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contentAssets    ContentAsset[]
+
+  @@index([workspaceId, category])
+  @@map("brand_assets")
+}
+
+model SocialAccount {
+  id                String        @id @default(uuid())
+  workspaceId       String
+  platform          String        // META_FB, META_IG, LINKEDIN, YOUTUBE
+  platformAccountId String
+  accountName       String
+  accountType       String        // PAGE, BUSINESS_PROFILE, PERSONAL_PROFILE, CHANNEL
+  scopesJson        String        @default("[]")
+  capabilitiesJson  String        @default("{}") // publish_photo, publish_video, publish_reels, read_insights
+  encryptedToken    String        // AES-256-GCM encrypted access token & refresh token
+  tokenExpiresAt    DateTime?
+  connectionStatus  String        @default("CONNECTED") // CONNECTED, DISCONNECTED, EXPIRED, NEEDS_REAUTH
+  isDemo            Boolean       @default(false)
+  lastSyncAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  workspace         Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contentItems      ContentItem[]
+
+  @@unique([workspaceId, platform, platformAccountId])
+  @@map("social_accounts")
+}
+
+model Campaign {
+  id           String        @id @default(uuid())
+  workspaceId  String
+  name         String
+  objective    String        // AWARENESS, LEADS, PRODUCT_LAUNCH, ENGAGEMENT, RECRUITMENT
+  briefJson    String        // complete campaign brief parameters
+  pillarsJson  String        @default("[]") // strategic content pillars
+  startAt      DateTime
+  endAt        DateTime
+  status       String        @default("ACTIVE") // DRAFT, ACTIVE, PAUSED, COMPLETED
+  createdBy    String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contentItems ContentItem[]
+
+  @@index([workspaceId, status])
+  @@map("campaigns")
+}
+
+model ContentItem {
+  id              String          @id @default(uuid())
+  workspaceId     String
+  campaignId      String?
+  socialAccountId String?
+  platform        String          // META_FB, META_IG, LINKEDIN, YOUTUBE
+  format          String          // IMAGE, VIDEO, CAROUSEL, TEXT, REEL, SHORT
+  caption         String          @default("")
+  title           String?         // YouTube title or LinkedIn headline
+  description     String?         // YouTube detailed description with timestamps
+  hashtagsJson    String          @default("[]")
+  tagsJson        String          @default("[]")
+  metadataJson    String          @default("{}") // platform-specific options (e.g. categoryId, kids_safe, altText)
+  status          String          @default("DRAFT") // DRAFT, AWAITING_APPROVAL, APPROVED, SCHEDULED, PUBLISHING, PUBLISHED, FAILED, CANCELLED, REJECTED
+  scheduledAt     DateTime?
+  timezone        String          @default("UTC")
+  approvedBy      String?
+  approvedAt      DateTime?
+  publishedAt     DateTime?
+  platformPostId  String?         // Authoritative post ID returned by platform API
+  platformUrl     String?         // Public link to published post
+  failureCode     String?
+  failureMessage  String?
+  retryCount      Int             @default(0)
+  idempotencyKey  String?         @unique
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaign        Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  socialAccount   SocialAccount?  @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+  contentAssets   ContentAsset[]
+  approvalEvents  ApprovalEvent[]
+  publishJobs     PublishJob[]
+  platformMetrics PlatformMetric[]
+
+  @@index([workspaceId, status, scheduledAt])
+  @@map("content_items")
+}
+
+model ContentAsset {
+  id            String      @id @default(uuid())
+  contentItemId String
+  brandAssetId  String
+  role          String      @default("MAIN") // MAIN, THUMBNAIL, CAROUSEL_SLIDE
+  sortOrder     Int         @default(0)
+
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  brandAsset    BrandAsset  @relation(fields: [brandAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, brandAssetId, role])
+  @@map("content_assets")
+}
+
+model ApprovalEvent {
+  id            String      @id @default(uuid())
+  contentItemId String
+  actorUserId   String
+  action        String      // SUBMIT, APPROVE, REJECT, EDIT, RESCHEDULE, CANCEL
+  comment       String?
+  createdAt     DateTime    @default(now())
+
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  actor         User        @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId, createdAt])
+  @@map("approval_events")
+}
+
+model PublishJob {
+  id             String      @id @default(uuid())
+  contentItemId  String
+  workspaceId    String
+  idempotencyKey String      @unique
+  scheduledAt    DateTime
+  status         String      @default("QUEUED") // QUEUED, PROCESSING, SUCCEEDED, FAILED, DEAD_LETTER, PAUSED
+  attemptCount   Int         @default(0)
+  maxAttempts    Int         @default(3)
+  nextAttemptAt  DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  lastErrorJson  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  contentItem    ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([workspaceId, status])
+  @@map("publish_jobs")
+}
+
+model PlatformMetric {
+  id            String      @id @default(uuid())
+  contentItemId String
+  metricKey     String      // IMPRESSIONS, REACH, LIKES, COMMENTS, SHARES, CLICKS, VIEWS
+  metricValue   Float
+  measuredAt    DateTime    @default(now())
+  source        String      // PLATFORM_API, ESTIMATED
+  definition    String?
+
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId, metricKey, measuredAt])
+  @@map("platform_metrics")
+}
+
+model AIRun {
+  id               String    @id @default(uuid())
+  workspaceId      String
+  featureKey       String    // CAMPAIGN_PLAN, POST_COPY, YOUTUBE_METADATA, BEST_TIME
+  provider         String    // GEMINI, OPENAI, MOCK
+  model            String
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  estimatedCost    Decimal   @default(0.0)
+  status           String    @default("SUCCESS") // SUCCESS, FAILED
+  metadataJson     String?
+  createdAt        DateTime  @default(now())
+
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, featureKey, createdAt])
+  @@map("ai_runs")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String?
+  type        String    // PUBLISH_SUCCESS, PUBLISH_FAILED, APPROVAL_NEEDED, TOKEN_EXPIRING, LIMIT_REACHED
+  title       String
+  message     String
+  payloadJson String?
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, read, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  workspaceId  String
+  actorUserId  String
+  action       String    // AUTH_LOGIN, ACCOUNT_CONNECTED, CAMPAIGN_CREATED, POST_APPROVED, EMERGENCY_PAUSE
+  resourceType String
+  resourceId   String?
+  metadataJson String?
+  createdAt    DateTime  @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor        User      @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
+}
