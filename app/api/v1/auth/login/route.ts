@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, syncSqliteDb } from '@/lib/prisma';
 import { verifyPassword, signSessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 
@@ -11,14 +11,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-      include: {
-        memberships: {
-          include: { workspace: true },
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: {
+          memberships: {
+            include: { workspace: true },
+          },
         },
-      },
-    });
+      });
+    } catch (dbErr: any) {
+      if (dbErr.message?.includes('does not exist') || dbErr.message?.includes('no such table')) {
+        syncSqliteDb();
+        user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase().trim() },
+          include: {
+            memberships: {
+              include: { workspace: true },
+            },
+          },
+        });
+      } else {
+        throw dbErr;
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });

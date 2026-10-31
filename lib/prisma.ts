@@ -2,19 +2,53 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-// Automatically ensure SQLite dev.db is in place at runtime
-try {
-  const rootDb = path.join(process.cwd(), 'dev.db');
-  const prismaDb = path.join(process.cwd(), 'prisma', 'dev.db');
+export function syncSqliteDb() {
+  try {
+    const cwd = process.cwd();
+    const possibleSources = [
+      path.join(cwd, 'dev.db'),
+      path.join(cwd, 'prisma', 'dev.db'),
+      path.resolve(cwd, '..', 'dev.db'),
+      path.resolve(cwd, '..', 'prisma', 'dev.db'),
+      path.resolve(cwd, '..', '..', 'dev.db'),
+      path.resolve(cwd, '..', '..', 'prisma', 'dev.db'),
+    ];
 
-  if (fs.existsSync(prismaDb) && !fs.existsSync(rootDb)) {
-    fs.copyFileSync(prismaDb, rootDb);
-  } else if (fs.existsSync(rootDb) && !fs.existsSync(prismaDb)) {
-    fs.copyFileSync(rootDb, prismaDb);
+    let foundValidDb: string | null = null;
+    for (const src of possibleSources) {
+      if (fs.existsSync(src)) {
+        try {
+          const stats = fs.statSync(src);
+          if (stats.size > 20000) {
+            foundValidDb = src;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    if (foundValidDb) {
+      const targets = [
+        path.join(cwd, 'dev.db'),
+        path.join(cwd, 'prisma', 'dev.db'),
+      ];
+      for (const target of targets) {
+        const targetExists = fs.existsSync(target);
+        const targetTooSmall = targetExists && fs.statSync(target).size < 20000;
+        if (!targetExists || targetTooSmall) {
+          const dir = path.dirname(target);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.copyFileSync(foundValidDb, target);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('SQLite auto-sync notification:', err);
   }
-} catch {
-  // Gracefully fallback
 }
+
+// Run initial sync on module load
+syncSqliteDb();
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
