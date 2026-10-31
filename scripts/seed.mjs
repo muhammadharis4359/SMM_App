@@ -4,9 +4,19 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding BranDive SocialFlow AI production database...');
+  console.log('🌱 Initializing BranDive SocialFlow AI with clean production slate...');
 
-  // 1. Create or update Plans
+  // 1. Clean out all dummy content, metrics, jobs, and notifications for a fresh real start
+  await prisma.platformMetric.deleteMany({});
+  await prisma.publishJob.deleteMany({});
+  await prisma.approvalEvent.deleteMany({});
+  await prisma.contentAsset.deleteMany({});
+  await prisma.contentItem.deleteMany({});
+  await prisma.campaign.deleteMany({});
+  await prisma.notification.deleteMany({});
+  console.log('🧹 Cleaned all dummy content items, campaigns, and metrics.');
+
+  // 2. Plans (Basic, Diamond, Premium)
   const plans = [
     {
       id: 'basic',
@@ -90,13 +100,12 @@ async function main() {
       create: plan
     });
   }
-  console.log('✅ Plans seeded (Basic, Diamond, Premium).');
 
   const now = new Date();
   const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const passwordHash = await bcrypt.hash('Password123!', 10);
 
-  // 2. Real Admin User (admin@brandivemedsols.com)
+  // 3. Real Admin User (admin@brandivemedsols.com)
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@brandivemedsols.com' },
     update: {
@@ -110,9 +119,8 @@ async function main() {
       status: 'ACTIVE'
     }
   });
-  console.log(`✅ Production Admin initialized: ${adminUser.email} (Password: Password123!)`);
 
-  // Also maintain demo user
+  // Secondary demo user
   const demoUser = await prisma.user.upsert({
     where: { email: 'demo@brandivemedsols.com' },
     update: {
@@ -128,7 +136,7 @@ async function main() {
   });
 
   // ==========================================
-  // 3. WORKSPACE 1: BranDive Media Solutions (Agency)
+  // 4. WORKSPACE 1: BranDive Media Solutions (Agency HQ)
   // ==========================================
   let wsBranDive = await prisma.workspace.findFirst({
     where: { name: 'BranDive Media Solutions' }
@@ -152,7 +160,6 @@ async function main() {
     });
   }
 
-  // Ensure Admin is OWNER of BranDive Media Solutions
   await prisma.workspaceMember.upsert({
     where: {
       workspaceId_userId: {
@@ -168,7 +175,6 @@ async function main() {
     }
   });
 
-  // Demo user member
   await prisma.workspaceMember.upsert({
     where: {
       workspaceId_userId: {
@@ -184,7 +190,6 @@ async function main() {
     }
   });
 
-  // Subscription (Premium Plan for Agency)
   await prisma.subscription.upsert({
     where: { workspaceId: wsBranDive.id },
     update: {
@@ -362,107 +367,8 @@ async function main() {
     });
   }
 
-  // BranDive Campaign & Items
-  let bmsCampaign = await prisma.campaign.findFirst({
-    where: { workspaceId: wsBranDive.id, name: 'Digital Growth Accelerate 2026' }
-  });
-  if (!bmsCampaign) {
-    bmsCampaign = await prisma.campaign.create({
-      data: {
-        workspaceId: wsBranDive.id,
-        name: 'Digital Growth Accelerate 2026',
-        objective: 'AWARENESS',
-        briefJson: JSON.stringify({
-          focus: 'Showcase BranDive multi-disciplinary agency power and AI automated campaign scheduling',
-          targetPlatforms: ['META_IG', 'META_FB', 'LINKEDIN', 'YOUTUBE'],
-          cadence: '4 posts weekly'
-        }),
-        pillarsJson: JSON.stringify([
-          'Digital Excellence Showcase',
-          'AI Automation Insights',
-          'Client Growth Strategies',
-          'Behind The Build'
-        ]),
-        startAt: now,
-        endAt: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
-        status: 'ACTIVE',
-        createdBy: adminUser.id
-      }
-    });
-  }
-
-  const bmsItems = [
-    {
-      workspaceId: wsBranDive.id,
-      campaignId: bmsCampaign.id,
-      platform: 'META_IG',
-      format: 'IMAGE',
-      caption: 'Transforming complex digital vision into seamless reality. At BranDive Media Solutions, we engineer growth systems that empower modern enterprises. 🚀 Dive into digital excellence with automated multi-channel workflows.\n\nLink in bio to book your complimentary brand audit.',
-      hashtagsJson: JSON.stringify(['#DigitalExcellence', '#BranDiveMedia', '#GrowthMarketing', '#SaaSAutomation', '#AgencyLife']),
-      status: 'PUBLISHED',
-      publishedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-      platformPostId: 'bms_ig_post_987654',
-      platformUrl: 'https://instagram.com/p/bms_ig_post_987654',
-      metadataJson: JSON.stringify({ isDemo: true, likes: 142, comments: 19 })
-    },
-    {
-      workspaceId: wsBranDive.id,
-      campaignId: bmsCampaign.id,
-      platform: 'LINKEDIN',
-      format: 'TEXT',
-      title: 'The Shift to Autonomy: Why Modern Agencies Plan Once and Publish Programmatically',
-      caption: 'The future of social media marketing is not about publishing more noise; it is about orchestrating precision.\n\nWhen brands establish structured content pillars, adapt copy natively per channel, and maintain strict human approval guardrails, consistency stops being a chore.\n\nAt BranDive Media Solutions, we built SocialFlow AI to bridge the gap between creative brief and dependable multi-platform scheduling.\n\nHow is your organization adapting its content distribution this quarter?',
-      hashtagsJson: JSON.stringify(['#SocialMediaStrategy', '#MarketingAutomation', '#DigitalTransformation', '#B2BMarketing']),
-      status: 'SCHEDULED',
-      scheduledAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
-      metadataJson: JSON.stringify({ isDemo: true })
-    },
-    {
-      workspaceId: wsBranDive.id,
-      campaignId: bmsCampaign.id,
-      platform: 'YOUTUBE',
-      format: 'VIDEO',
-      title: 'How BranDive SocialFlow AI Automates Multi-Platform Campaigns',
-      caption: 'Explore how BranDive SocialFlow AI turns a single campaign brief into platform-ready calendars for YouTube, Meta, and LinkedIn.',
-      description: 'Discover how BranDive SocialFlow AI turns a single campaign brief and brand asset library into platform-optimized schedules across Instagram, Facebook, LinkedIn, and YouTube.\n\nTimestamps:\n0:00 - Introduction to SocialFlow AI\n01:45 - Connecting Official Social APIs\n04:10 - Brand Onboarding & Voice Profiles\n07:30 - Autonomous Planning vs Human Approval\n11:15 - Real-time Publishing & Analytics\n\nLearn more: https://www.brandivemedsols.com\nContact: contact@brandivemedsols.com',
-      tagsJson: JSON.stringify(['social media automation', 'brandive media solutions', 'socialflow ai', 'marketing agency', 'youtube scheduling']),
-      metadataJson: JSON.stringify({ categoryId: '28', madeForKids: false, visibility: 'PUBLIC', isDemo: true }),
-      status: 'AWAITING_APPROVAL',
-      scheduledAt: new Date(now.getTime() + 28 * 60 * 60 * 1000)
-    },
-    {
-      workspaceId: wsBranDive.id,
-      campaignId: bmsCampaign.id,
-      platform: 'META_FB',
-      format: 'IMAGE',
-      caption: 'Is your brand content calendar ready for next week? Plan your campaign themes once, let our platform generate tailored variations, and schedule with confidence. Discover how BranDive Media Solutions powers modern brands.',
-      hashtagsJson: JSON.stringify(['#BrandGrowth', '#BranDive', '#DigitalMarketing']),
-      metadataJson: JSON.stringify({ isDemo: true }),
-      status: 'DRAFT'
-    }
-  ];
-
-  for (const item of bmsItems) {
-    const existing = await prisma.contentItem.findFirst({
-      where: { workspaceId: item.workspaceId, platform: item.platform, caption: item.caption }
-    });
-    if (!existing) {
-      const createdItem = await prisma.contentItem.create({ data: item });
-      if (item.status === 'PUBLISHED') {
-        await prisma.platformMetric.createMany({
-          data: [
-            { contentItemId: createdItem.id, metricKey: 'IMPRESSIONS', metricValue: 3420, source: 'PLATFORM_API', definition: 'Times displayed on feed' },
-            { contentItemId: createdItem.id, metricKey: 'REACH', metricValue: 2890, source: 'PLATFORM_API', definition: 'Unique accounts reached' },
-            { contentItemId: createdItem.id, metricKey: 'LIKES', metricValue: 142, source: 'PLATFORM_API', definition: 'Post reactions' },
-            { contentItemId: createdItem.id, metricKey: 'COMMENTS', metricValue: 19, source: 'PLATFORM_API', definition: 'Total comments' }
-          ]
-        });
-      }
-    }
-  }
-
   // ==========================================
-  // 4. WORKSPACE 2: learn2growrich (Client Account)
+  // 5. WORKSPACE 2: learn2growrich (Client Account)
   // ==========================================
   let wsL2GR = await prisma.workspace.findFirst({
     where: { name: 'learn2growrich' }
@@ -486,7 +392,6 @@ async function main() {
     });
   }
 
-  // Ensure Admin is OWNER of learn2growrich
   await prisma.workspaceMember.upsert({
     where: {
       workspaceId_userId: {
@@ -502,7 +407,6 @@ async function main() {
     }
   });
 
-  // Subscription (Diamond Plan for Client)
   await prisma.subscription.upsert({
     where: { workspaceId: wsL2GR.id },
     update: {
@@ -608,7 +512,7 @@ async function main() {
     }
   });
 
-  // learn2growrich Connected Social Accounts
+  // learn2growrich Social Accounts
   const l2grSocials = [
     {
       workspaceId: wsL2GR.id,
@@ -682,151 +586,38 @@ async function main() {
     });
   }
 
-  // learn2growrich Campaign & Posts
-  let l2grCampaign = await prisma.campaign.findFirst({
-    where: { workspaceId: wsL2GR.id, name: 'Wealth Freedom Blueprint 2026' }
-  });
-  if (!l2grCampaign) {
-    l2grCampaign = await prisma.campaign.create({
-      data: {
-        workspaceId: wsL2GR.id,
-        name: 'Wealth Freedom Blueprint 2026',
-        objective: 'ENGAGEMENT',
-        briefJson: JSON.stringify({
-          focus: 'Daily financial mastery habits, high-income skill development, and mindset transformation',
-          targetPlatforms: ['META_IG', 'META_FB', 'LINKEDIN', 'YOUTUBE'],
-          cadence: '5 posts weekly'
-        }),
-        pillarsJson: JSON.stringify([
-          'Wealth Mindset Secrets',
-          'High-Income Skill Stacks',
-          'Passive Income Architecture',
-          'Daily Discipline & Execution'
-        ]),
-        startAt: now,
-        endAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-        status: 'ACTIVE',
-        createdBy: adminUser.id
-      }
-    });
-  }
-
-  const l2grItems = [
-    {
-      workspaceId: wsL2GR.id,
-      campaignId: l2grCampaign.id,
-      platform: 'META_IG',
-      format: 'CAROUSEL',
-      caption: 'The math is simple: if you only rely on a single income stream, you are one step away from financial vulnerability. 📈\n\nHere are 5 financial habits that separate the 1% from everyone else:\n1. Pay yourself first before monthly expenses.\n2. Reinvest capital into cash-flowing assets.\n3. Master one high-income skill before seeking passive income.\n4. Avoid lifestyle inflation as income rises.\n5. Think in decades, execute in days.\n\nSave this post for later. Drop "GROW" in the comments and we will DM you the free Wealth Acceleration Roadmap! 🚀🔥',
-      hashtagsJson: JSON.stringify(['#learn2growrich', '#WealthMindset', '#FinancialFreedom', '#InvestingTips', '#PassiveIncome', '#Entrepreneurship']),
-      status: 'PUBLISHED',
-      publishedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
-      platformPostId: 'l2gr_ig_post_1001',
-      platformUrl: 'https://instagram.com/p/l2gr_ig_post_1001',
-      metadataJson: JSON.stringify({ isDemo: true, likes: 388, comments: 42 })
-    },
-    {
-      workspaceId: wsL2GR.id,
-      campaignId: l2grCampaign.id,
-      platform: 'LINKEDIN',
-      format: 'TEXT',
-      title: 'Why High Earners Still Go Broke: The Psychology of Wealth Preservation',
-      caption: 'Income is NOT wealth. Wealth is what you keep, compound, and leverage.\n\nToo many professionals focus 100% on increasing salary without building an investment engine. In this guide, we break down how to convert active earned income into enduring equity.\n\nKey takeaway: When your money works harder than you do, freedom becomes inevitable.\n\nWhat is your primary investment vehicle this year? Let us discuss below.',
-      hashtagsJson: JSON.stringify(['#WealthCreation', '#PersonalFinance', '#FinancialLiteracy', '#learn2growrich', '#CareerGrowth']),
-      status: 'SCHEDULED',
-      scheduledAt: new Date(now.getTime() + 8 * 60 * 60 * 1000),
-      metadataJson: JSON.stringify({ isDemo: true })
-    },
-    {
-      workspaceId: wsL2GR.id,
-      campaignId: l2grCampaign.id,
-      platform: 'YOUTUBE',
-      format: 'VIDEO',
-      title: 'The $10K/Month Skill Stack: How Anyone Can Start in 2026',
-      caption: 'Comprehensive roadmap breaking down the highest ROI skills to learn and monetize this year.',
-      description: 'In this masterclass by learn2growrich, we explore the exact 4-step framework to master high-value digital skills and create sustainable cash flow.\n\nTimestamps:\n0:00 - The Wealth Mindset Shift\n02:30 - Identifying High-Demand Skills\n06:15 - Building Proof of Work\n10:45 - Scaling Beyond 1-on-1 Time\n\nVisit: https://learn2growrich.com\nEnroll in the Academy: https://learn2growrich.com/masterclass',
-      tagsJson: JSON.stringify(['wealth building', 'learn2growrich', 'financial freedom', 'passive income', 'business growth', 'skill stack']),
-      metadataJson: JSON.stringify({ categoryId: '27', madeForKids: false, visibility: 'PUBLIC', isDemo: true }),
-      status: 'AWAITING_APPROVAL',
-      scheduledAt: new Date(now.getTime() + 36 * 60 * 60 * 1000)
-    },
-    {
-      workspaceId: wsL2GR.id,
-      campaignId: l2grCampaign.id,
-      platform: 'META_FB',
-      format: 'IMAGE',
-      caption: 'True financial freedom isn\'t about buying luxuries; it\'s about owning your time. What is one positive financial habit you are building this month? Tell the learn2growrich community below! 👇',
-      hashtagsJson: JSON.stringify(['#MindsetShift', '#learn2growrich', '#DailyHabits', '#FinancialFreedom']),
-      metadataJson: JSON.stringify({ isDemo: true }),
-      status: 'DRAFT'
-    }
-  ];
-
-  for (const item of l2grItems) {
-    const existing = await prisma.contentItem.findFirst({
-      where: { workspaceId: item.workspaceId, platform: item.platform, caption: item.caption }
-    });
-    if (!existing) {
-      const createdItem = await prisma.contentItem.create({ data: item });
-      if (item.status === 'PUBLISHED') {
-        await prisma.platformMetric.createMany({
-          data: [
-            { contentItemId: createdItem.id, metricKey: 'IMPRESSIONS', metricValue: 5420, source: 'PLATFORM_API', definition: 'Times displayed on feed' },
-            { contentItemId: createdItem.id, metricKey: 'REACH', metricValue: 4110, source: 'PLATFORM_API', definition: 'Unique accounts reached' },
-            { contentItemId: createdItem.id, metricKey: 'LIKES', metricValue: 388, source: 'PLATFORM_API', definition: 'Post reactions' },
-            { contentItemId: createdItem.id, metricKey: 'COMMENTS', metricValue: 42, source: 'PLATFORM_API', definition: 'Total comments' }
-          ]
-        });
-      }
-    }
-  }
-
-  // Notifications for both workspaces
+  // Clean, fresh welcoming notifications
   await prisma.notification.createMany({
     data: [
       {
         workspaceId: wsBranDive.id,
         userId: adminUser.id,
-        type: 'APPROVAL_NEEDED',
-        title: 'Review Needed: YouTube Video Concept',
-        message: 'Content draft for "How BranDive SocialFlow AI Automates Multi-Platform Campaigns" is awaiting approval.',
-        read: false
-      },
-      {
-        workspaceId: wsBranDive.id,
-        userId: adminUser.id,
-        type: 'PUBLISH_SUCCESS',
-        title: 'Post Published Successfully',
-        message: 'Instagram post was published on schedule for BranDive Media Solutions.',
-        read: true
-      },
-      {
-        workspaceId: wsL2GR.id,
-        userId: adminUser.id,
-        type: 'APPROVAL_NEEDED',
-        title: 'Client Review: $10K/Month Skill Stack Masterclass',
-        message: 'YouTube video draft for learn2growrich is ready for your sign-off.',
+        type: 'WORKSPACE_INITIALIZED',
+        title: 'Agency Workspace Ready',
+        message: 'BranDive Media Solutions is live. Your clean calendar is ready for real campaign planning.',
         read: false
       },
       {
         workspaceId: wsL2GR.id,
         userId: adminUser.id,
-        type: 'PUBLISH_SUCCESS',
-        title: 'High Engagement Alert: 5 Financial Habits Carousel',
-        message: 'learn2growrich Instagram post surpassed 5,400 impressions with 42 comments.',
-        read: true
+        type: 'WORKSPACE_INITIALIZED',
+        title: 'Client Workspace Ready',
+        message: 'learn2growrich is live. Your clean calendar is ready for wealth mindset content.',
+        read: false
       }
     ]
   });
 
-  console.log('🎉 Seed complete! Production Admin (admin@brandivemedsols.com) created with access to:');
-  console.log(`   1. 🏢 BranDive Media Solutions (${wsBranDive.id}) [Agency, Premium Plan]`);
-  console.log(`   2. 🚀 learn2growrich (${wsL2GR.id}) [Client, Diamond Plan]`);
+  console.log('✨ Fresh production slate successfully initialized!');
+  console.log('   - 0 dummy campaigns');
+  console.log('   - 0 dummy posts / calendar items');
+  console.log('   - 0 dummy metrics');
+  console.log('   - Both workspaces configured with full brand profiles and channels.');
 }
 
 main()
   .catch((e) => {
-    console.error('Error during seed:', e);
+    console.error('Error during clean seed:', e);
     process.exit(1);
   })
   .finally(async () => {

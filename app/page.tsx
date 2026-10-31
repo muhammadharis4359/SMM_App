@@ -31,6 +31,7 @@ import {
   Heart,
   MousePointer,
   Bot,
+  BarChart3,
 } from 'lucide-react';
 
 export default function DashboardOverviewPage() {
@@ -106,6 +107,58 @@ export default function DashboardOverviewPage() {
         const notifRes = await fetch(`/api/v1/workspaces/${activeWs.id}/notifications`);
         const notifData = await notifRes.json();
         setNotifications(notifData.notifications || []);
+
+        // Fetch real calendar items from DB
+        try {
+          const calRes = await fetch(`/api/v1/workspaces/${activeWs.id}/calendar`);
+          if (calRes.ok) {
+            const calData = await calRes.json();
+            const rawItems = (calData.items || []).map((item: any) => {
+              const d = new Date(item.scheduledAt || item.createdAt);
+              const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+              const dayKey = dayNames[d.getDay()];
+              return {
+                id: item.id,
+                day: `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getDate()}`,
+                dayKey,
+                dateStr: d.toISOString().split('T')[0],
+                platform: item.channel?.platform || item.platform || 'INSTAGRAM',
+                time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                title: item.title || item.caption?.slice(0, 40) || 'Untitled Post',
+                image: item.mediaUrls?.[0] || '/thumbnails/thumb_trends.svg',
+                status:
+                  item.status === 'PUBLISHED'
+                    ? 'Scheduled'
+                    : item.status === 'AWAITING_APPROVAL'
+                    ? 'Pending Review'
+                    : item.status === 'SCHEDULED'
+                    ? 'Scheduled'
+                    : 'Draft',
+                rawStatus: item.status,
+                caption: item.caption || '',
+              };
+            });
+            setCalendarPosts(rawItems);
+            setApprovalQueue(
+              rawItems
+                .filter((i: any) => i.rawStatus === 'AWAITING_APPROVAL')
+                .map((i: any) => ({
+                  id: i.id,
+                  title: i.title,
+                  platform: i.platform,
+                  time: i.time,
+                  image: i.image,
+                }))
+            );
+          } else {
+            setCalendarPosts([]);
+            setApprovalQueue([]);
+          }
+        } catch (e) {
+          console.error('Error fetching calendar posts:', e);
+          setCalendarPosts([]);
+          setApprovalQueue([]);
+        }
       }
     } catch (err) {
       console.error('Error fetching workspace:', err);
@@ -156,166 +209,11 @@ export default function DashboardOverviewPage() {
     }
   };
 
-  // Calendar Post Dataset exactly matching the Cyber Magic UI/UX layout
-  const [calendarPosts, setCalendarPosts] = useState<any[]>([
-    // Mon 19
-    {
-      id: 'p1',
-      day: 'Mon 19',
-      dayKey: 'mon',
-      platform: 'INSTAGRAM',
-      time: '10:00 AM',
-      title: '5 Design Trends to Watch in 2025',
-      image: '/thumbnails/thumb_trends.svg',
-      status: 'Scheduled',
-      caption: 'The future of digital interface design is here. Explore our breakdown of dynamic glassmorphism and AI-assisted typography for 2025.',
-    },
-    {
-      id: 'p2',
-      day: 'Mon 19',
-      dayKey: 'mon',
-      platform: 'LINKEDIN',
-      time: '01:30 PM',
-      title: 'Why Brand Strategy Drives Long-Term Growth',
-      image: '/thumbnails/thumb_strategy.svg',
-      status: 'Scheduled',
-      caption: 'Tactics win moments; brand strategy wins markets. Here is how BranDive positions companies for sustained market leadership.',
-    },
-    // Tue 20
-    {
-      id: 'p3',
-      day: 'Tue 20',
-      dayKey: 'tue',
-      platform: 'FACEBOOK',
-      time: '11:00 AM',
-      title: 'Behind the Scenes of Our Creative Process',
-      image: '/thumbnails/thumb_bts.svg',
-      status: 'Scheduled',
-      caption: 'From rough wireframes to polished multi-channel campaigns: a peek inside the BranDive Media Solutions studio.',
-    },
-    {
-      id: 'p4',
-      day: 'Tue 20',
-      dayKey: 'tue',
-      platform: 'INSTAGRAM',
-      time: '04:00 PM',
-      title: 'How AI is Changing Content Creation',
-      image: '/thumbnails/thumb_ai.svg',
-      status: 'Scheduled',
-      caption: 'AI does not replace creativity—it scales human intention. Discover how our SocialFlow autopilot system works.',
-    },
-    // Wed 21 (Active Day)
-    {
-      id: 'p5',
-      day: 'Wed 21',
-      dayKey: 'wed',
-      platform: 'LINKEDIN',
-      time: '10:30 AM',
-      title: '3 Ways Data Improves Marketing Decisions',
-      image: '/thumbnails/thumb_analytics.svg',
-      status: 'Scheduled',
-      caption: 'Stop guessing what works. Discover the 3 core metrics our enterprise clients track to guarantee return on ad spend.',
-    },
-    {
-      id: 'p6',
-      day: 'Wed 21',
-      dayKey: 'wed',
-      platform: 'INSTAGRAM',
-      time: '02:00 PM',
-      title: 'Office Vibes Wednesday ✨',
-      image: '/thumbnails/thumb_bts.svg',
-      status: 'Scheduled',
-      caption: 'Midweek momentum at BranDive Media Solutions. Building tomorrow digital landmarks today.',
-    },
-    // Thu 22
-    {
-      id: 'p7',
-      day: 'Thu 22',
-      dayKey: 'thu',
-      platform: 'FACEBOOK',
-      time: '11:30 AM',
-      title: 'New Project Spotlight',
-      image: '/thumbnails/thumb_spotlight.svg',
-      status: 'Pending Review',
-      caption: 'Celebrating our latest enterprise digital transformation project. See the full case study on our portal.',
-    },
-    {
-      id: 'p8',
-      day: 'Thu 22',
-      dayKey: 'thu',
-      platform: 'LINKEDIN',
-      time: '03:00 PM',
-      title: '5 Content Tips That Actually Work',
-      image: '/thumbnails/thumb_tips.svg',
-      status: 'Pending Review',
-      caption: 'Actionable tips you can implement today to increase social engagement by 35% without expanding your ad budget.',
-    },
-    // Fri 23
-    {
-      id: 'p9',
-      day: 'Fri 23',
-      dayKey: 'fri',
-      platform: 'INSTAGRAM',
-      time: '10:00 AM',
-      title: 'Client Success Stories',
-      image: '/thumbnails/thumb_trends.svg',
-      status: 'Draft',
-      caption: 'How one medical tech company 4x their organic social reach in 60 days with BranDive SocialFlow AI.',
-    },
-    {
-      id: 'p10',
-      day: 'Fri 23',
-      dayKey: 'fri',
-      platform: 'FACEBOOK',
-      time: '04:30 PM',
-      title: 'Q&A Friday Ask Us Anything',
-      image: '/thumbnails/thumb_strategy.svg',
-      status: 'Draft',
-      caption: 'Got questions about web design, video production, or automated social media? Drop them below!',
-    },
-    // Sat 24
-    {
-      id: 'p11',
-      day: 'Sat 24',
-      dayKey: 'sat',
-      platform: 'LINKEDIN',
-      time: '11:00 AM',
-      title: 'Weekend Motivation Keep Building',
-      image: '/thumbnails/thumb_spotlight.svg',
-      status: 'Scheduled',
-      caption: 'Consistency is the ultimate differentiator. Have an inspiring and productive weekend!',
-    },
-    // Sun 25
-    {
-      id: 'p12',
-      day: 'Sun 25',
-      dayKey: 'sun',
-      platform: 'INSTAGRAM',
-      time: '06:00 PM',
-      title: 'Sunday Reset Plan. Rest. Win.',
-      image: '/thumbnails/thumb_trends.svg',
-      status: 'Scheduled',
-      caption: 'Recharging for another big week of growth and impact. What are your core goals for this coming week?',
-    },
-  ]);
+  // Real calendar posts dynamically fetched from database (Clean slate default)
+  const [calendarPosts, setCalendarPosts] = useState<any[]>([]);
 
-  // Approval queue items
-  const [approvalQueue, setApprovalQueue] = useState<any[]>([
-    {
-      id: 'q1',
-      title: 'New Project Spotlight',
-      platform: 'Facebook',
-      time: 'May 22, 11:30 AM',
-      image: '/thumbnails/thumb_spotlight.svg',
-    },
-    {
-      id: 'q2',
-      title: '5 Content Tips That Actually Work',
-      platform: 'LinkedIn',
-      time: 'May 22, 03:00 PM',
-      image: '/thumbnails/thumb_tips.svg',
-    },
-  ]);
+  // Real approval queue items dynamically filtered from calendar
+  const [approvalQueue, setApprovalQueue] = useState<any[]>([]);
 
   const handleApproveItem = (id: string, title: string) => {
     setApprovalQueue((prev) => prev.filter((item) => item.id !== id));
@@ -341,7 +239,7 @@ export default function DashboardOverviewPage() {
     setIsAiGenerating(true);
     setTimeout(() => {
       setAiSuggestions((prev) => [
-        `Generated: ${aiPrompt} (Tailored for BranDive)`,
+        `Generated: ${aiPrompt} (Tailored for ${workspace.name})`,
         ...prev.slice(0, 2),
       ]);
       setAiPrompt('');
@@ -354,8 +252,10 @@ export default function DashboardOverviewPage() {
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
       case 'INSTAGRAM':
+      case 'META_IG':
         return <Instagram size={13} color="#F43F5E" />;
       case 'FACEBOOK':
+      case 'META_FB':
         return <Facebook size={13} color="#3B82F6" />;
       case 'LINKEDIN':
         return <Linkedin size={13} color="#0EA5E9" />;
@@ -413,15 +313,40 @@ export default function DashboardOverviewPage() {
     );
   };
 
-  const daysList = [
-    { label: 'Mon 19', key: 'mon' },
-    { label: 'Tue 20', key: 'tue' },
-    { label: 'Wed 21', key: 'wed', isToday: true },
-    { label: 'Thu 22', key: 'thu' },
-    { label: 'Fri 23', key: 'fri' },
-    { label: 'Sat 24', key: 'sat' },
-    { label: 'Sun 25', key: 'sun' },
-  ];
+  // Dynamic Current Week Calculation & Navigation
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+
+  const getWeekDays = (offset = 0) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offset * 7);
+    const day = now.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diff);
+
+    const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const keyMap = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const today = new Date();
+
+    return shortDays.map((shortName, idx) => {
+      const cur = new Date(monday);
+      cur.setDate(monday.getDate() + idx);
+      const isToday =
+        cur.getDate() === today.getDate() &&
+        cur.getMonth() === today.getMonth() &&
+        cur.getFullYear() === today.getFullYear();
+
+      return {
+        label: `${shortName} ${cur.getDate()}`,
+        key: keyMap[idx],
+        dateStr: cur.toISOString().split('T')[0],
+        monthYear: cur.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        isToday,
+      };
+    });
+  };
+
+  const daysList = getWeekDays(weekOffset);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#070B14' }}>
@@ -493,10 +418,12 @@ export default function DashboardOverviewPage() {
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>Upcoming Posts</div>
                 <div style={{ fontSize: '1.9rem', fontWeight: 700, color: '#FFFFFF', marginTop: '6px' }}>
-                  24
+                  {calendarPosts.filter((p) => p.status === 'Scheduled').length}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#10B981', marginTop: '4px', fontWeight: 500 }}>
-                  ↑ 20% vs last 7 days
+                <div style={{ fontSize: '0.72rem', color: calendarPosts.filter((p) => p.status === 'Scheduled').length > 0 ? '#10B981' : '#64748B', marginTop: '4px', fontWeight: 500 }}>
+                  {calendarPosts.filter((p) => p.status === 'Scheduled').length > 0
+                    ? 'Active in queue'
+                    : 'No posts scheduled'}
                 </div>
               </div>
               <div
@@ -514,7 +441,7 @@ export default function DashboardOverviewPage() {
               </div>
             </div>
 
-            {/* Card 2: Engagement (This week) with Wave Sparkline */}
+            {/* Card 2: Engagement (This week) */}
             <div
               className="cyber-card"
               style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
@@ -522,24 +449,24 @@ export default function DashboardOverviewPage() {
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>Engagement (This week)</div>
                 <div style={{ fontSize: '1.9rem', fontWeight: 700, color: '#FFFFFF', marginTop: '6px' }}>
-                  8.7K
+                  0
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#10B981', marginTop: '4px', fontWeight: 500 }}>
-                  ↑ 32% vs last 7 days
+                <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '4px', fontWeight: 500 }}>
+                  Awaiting live metrics
                 </div>
               </div>
-              {/* Blue Wave Sparkline SVG */}
-              <div style={{ width: '80px', height: '36px' }}>
-                <svg width="80" height="36" viewBox="0 0 80 36" fill="none">
-                  <path
-                    d="M2 28 C 15 28, 20 8, 32 16 C 44 24, 52 4, 64 12 C 72 16, 76 6, 78 8"
-                    stroke="#0E88D3"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <circle cx="78" cy="8" r="3" fill="#38BDF8" />
-                </svg>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(14, 136, 211, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <TrendingUp size={22} color="#0E88D3" />
               </div>
             </div>
 
@@ -551,10 +478,10 @@ export default function DashboardOverviewPage() {
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>Content Created</div>
                 <div style={{ fontSize: '1.9rem', fontWeight: 700, color: '#FFFFFF', marginTop: '6px' }}>
-                  56
+                  {calendarPosts.length}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#10B981', marginTop: '4px', fontWeight: 500 }}>
-                  ↑ 18% vs last 7 days
+                <div style={{ fontSize: '0.72rem', color: calendarPosts.length > 0 ? '#10B981' : '#64748B', marginTop: '4px', fontWeight: 500 }}>
+                  {calendarPosts.length > 0 ? `${calendarPosts.length} posts created` : 'Ready for first post'}
                 </div>
               </div>
               <div
@@ -580,10 +507,10 @@ export default function DashboardOverviewPage() {
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>Time Saved</div>
                 <div style={{ fontSize: '1.9rem', fontWeight: 700, color: '#FFFFFF', marginTop: '6px' }}>
-                  16.5h
+                  {calendarPosts.length > 0 ? `${(calendarPosts.length * 0.5).toFixed(1)}h` : '0h'}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#10B981', marginTop: '4px', fontWeight: 500 }}>
-                  ↑ 42% vs last 7 days
+                <div style={{ fontSize: '0.72rem', color: calendarPosts.length > 0 ? '#10B981' : '#64748B', marginTop: '4px', fontWeight: 500 }}>
+                  {calendarPosts.length > 0 ? 'Saved with autopilot' : 'Automate to save hours'}
                 </div>
               </div>
               <div
@@ -652,17 +579,28 @@ export default function DashboardOverviewPage() {
                         color: '#F1F5F9',
                       }}
                     >
-                      <button style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+                      <button
+                        onClick={() => setWeekOffset((prev) => prev - 1)}
+                        style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                        title="Previous week"
+                      >
                         <ChevronLeft size={14} />
                       </button>
-                      <span>May 19 – May 25, 2025</span>
-                      <button style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+                      <span>
+                        {daysList[0]?.label} – {daysList[6]?.label}, {daysList[0]?.monthYear}
+                      </span>
+                      <button
+                        onClick={() => setWeekOffset((prev) => prev + 1)}
+                        style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                        title="Next week"
+                      >
                         <ChevronRight size={14} />
                       </button>
                     </div>
 
                     {/* Today Button */}
                     <button
+                      onClick={() => setWeekOffset(0)}
                       style={{
                         backgroundColor: '#0F172A',
                         border: '1px solid rgba(255, 255, 255, 0.05)',
@@ -782,8 +720,41 @@ export default function DashboardOverviewPage() {
                           {d.label}
                         </div>
 
-                        {/* Cards inside Day */}
-                        {dayItems.map((post) => (
+                        {/* Cards inside Day or Clean Empty Schedule Placeholder */}
+                        {dayItems.length === 0 ? (
+                          <div
+                            onClick={() => setIsCreateOpen(true)}
+                            style={{
+                              border: '1px dashed rgba(255, 255, 255, 0.08)',
+                              borderRadius: '8px',
+                              padding: '18px 8px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              color: '#475569',
+                              fontSize: '0.68rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              minHeight: '80px',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(14, 136, 211, 0.4)';
+                              e.currentTarget.style.color = '#38BDF8';
+                              e.currentTarget.style.backgroundColor = 'rgba(14, 136, 211, 0.04)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                              e.currentTarget.style.color = '#475569';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <Plus size={13} />
+                            <span>Schedule</span>
+                          </div>
+                        ) : (
+                          dayItems.map((post) => (
                           <div
                             key={post.id}
                             onClick={() => setSelectedPost(post)}
@@ -847,7 +818,8 @@ export default function DashboardOverviewPage() {
                             {/* Status Chip */}
                             <div style={{ marginTop: '2px' }}>{getStatusBadge(post.status)}</div>
                           </div>
-                        ))}
+                        ))
+                      )}
                       </div>
                     );
                   })}
@@ -924,7 +896,7 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Idea Generation</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>18</div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>0</div>
                     </div>
                   </div>
 
@@ -947,7 +919,9 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>In Progress</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>12</div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {calendarPosts.filter((p) => p.status === 'Draft').length}
+                      </div>
                     </div>
                   </div>
 
@@ -970,7 +944,9 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Ready for Review</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>7</div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {approvalQueue.length}
+                      </div>
                     </div>
                   </div>
 
@@ -993,7 +969,9 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Approved</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>24</div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {calendarPosts.filter((p) => p.status === 'Scheduled').length}
+                      </div>
                     </div>
                   </div>
 
@@ -1016,7 +994,9 @@ export default function DashboardOverviewPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Scheduled</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>24</div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
+                        {calendarPosts.filter((p) => p.status === 'Scheduled').length}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1064,101 +1044,118 @@ export default function DashboardOverviewPage() {
                   </select>
                 </div>
 
-                {/* Line Chart Component with SVG */}
-                <div style={{ position: 'relative', width: '100%', height: '170px' }}>
-                  {/* Peak Tooltip Callout */}
+                {/* Performance Visual: Clean Empty State if 0 Published, otherwise SVG Chart */}
+                {calendarPosts.filter((p) => p.rawStatus === 'PUBLISHED').length === 0 ? (
                   <div
                     style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '38px',
-                      backgroundColor: '#0F172A',
-                      border: '1px solid rgba(14, 136, 211, 0.5)',
-                      borderRadius: '6px',
-                      padding: '2px 8px',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      color: '#FFFFFF',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                      height: '180px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(255, 255, 255, 0.07)',
+                      padding: '20px',
+                      textAlign: 'center',
                     }}
                   >
-                    12.4K
+                    <div
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(14, 136, 211, 0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#38BDF8',
+                      }}
+                    >
+                      <BarChart3 size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#F1F5F9' }}>
+                        No Publishing Analytics Yet
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: '#64748B',
+                          marginTop: '4px',
+                          maxWidth: '260px',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Live curves for Reach, Engagement & Clicks will stream here in real time as your scheduled posts go live.
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div style={{ position: 'relative', width: '100%', height: '170px' }}>
+                      <svg width="100%" height="100%" viewBox="0 0 340 150" fill="none">
+                        <line x1="30" y1="20" x2="330" y2="20" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
+                        <line x1="30" y1="55" x2="330" y2="55" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
+                        <line x1="30" y1="90" x2="330" y2="90" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
+                        <line x1="30" y1="125" x2="330" y2="125" stroke="rgba(255, 255, 255, 0.05)" />
 
-                  <svg width="100%" height="100%" viewBox="0 0 340 150" fill="none">
-                    {/* Y Axis Guide Lines */}
-                    <line x1="30" y1="20" x2="330" y2="20" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
-                    <line x1="30" y1="55" x2="330" y2="55" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
-                    <line x1="30" y1="90" x2="330" y2="90" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="3 3" />
-                    <line x1="30" y1="125" x2="330" y2="125" stroke="rgba(255, 255, 255, 0.05)" />
+                        <text x="10" y="24" fill="#64748B" fontSize="9">15K</text>
+                        <text x="10" y="59" fill="#64748B" fontSize="9">10K</text>
+                        <text x="14" y="94" fill="#64748B" fontSize="9">5K</text>
+                        <text x="18" y="128" fill="#64748B" fontSize="9">0</text>
 
-                    {/* Y Axis Labels */}
-                    <text x="10" y="24" fill="#64748B" fontSize="9">15K</text>
-                    <text x="10" y="59" fill="#64748B" fontSize="9">10K</text>
-                    <text x="14" y="94" fill="#64748B" fontSize="9">5K</text>
-                    <text x="18" y="128" fill="#64748B" fontSize="9">0</text>
+                        <path
+                          d="M35 110 C 70 100, 110 80, 150 90 C 190 100, 230 40, 270 25 C 290 18, 310 32, 325 35"
+                          stroke="#0E88D3"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                        <circle cx="270" cy="25" r="4" fill="#38BDF8" />
 
-                    {/* Blue Line (Reach) */}
-                    <path
-                      d="M35 110 C 70 100, 110 80, 150 90 C 190 100, 230 40, 270 25 C 290 18, 310 32, 325 35"
-                      stroke="#0E88D3"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="270" cy="25" r="4" fill="#38BDF8" />
+                        <path
+                          d="M35 120 C 70 115, 110 105, 150 110 C 190 115, 230 75, 270 65 C 290 60, 310 70, 325 68"
+                          stroke="#A855F7"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
 
-                    {/* Purple Line (Engagement) */}
-                    <path
-                      d="M35 120 C 70 115, 110 105, 150 110 C 190 115, 230 75, 270 65 C 290 60, 310 70, 325 68"
-                      stroke="#A855F7"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
+                        <path
+                          d="M35 124 C 70 122, 110 118, 150 120 C 190 122, 230 100, 270 95 C 290 92, 310 98, 325 96"
+                          stroke="#10B981"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
 
-                    {/* Green Line (Clicks) */}
-                    <path
-                      d="M35 124 C 70 122, 110 118, 150 120 C 190 122, 230 100, 270 95 C 290 92, 310 98, 325 96"
-                      stroke="#10B981"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-
-                    {/* X Axis Date Labels */}
-                    <text x="32" y="142" fill="#64748B" fontSize="8">May 19</text>
-                    <text x="78" y="142" fill="#64748B" fontSize="8">May 20</text>
-                    <text x="124" y="142" fill="#64748B" fontSize="8">May 21</text>
-                    <text x="170" y="142" fill="#64748B" fontSize="8">May 22</text>
-                    <text x="216" y="142" fill="#64748B" fontSize="8">May 23</text>
-                    <text x="262" y="142" fill="#64748B" fontSize="8">May 24</text>
-                    <text x="306" y="142" fill="#64748B" fontSize="8">May 25</text>
-                  </svg>
-                </div>
-
-                {/* Legend */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '20px',
-                    marginTop: '10px',
-                    fontSize: '0.74rem',
-                    color: '#94A3B8',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0E88D3' }} />
-                    <span>Reach</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#A855F7' }} />
-                    <span>Engagement</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-                    <span>Clicks</span>
-                  </div>
-                </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '20px',
+                        marginTop: '10px',
+                        fontSize: '0.74rem',
+                        color: '#94A3B8',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0E88D3' }} />
+                        <span>Reach</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#A855F7' }} />
+                        <span>Engagement</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+                        <span>Clicks</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* AI Assistant Card (Beta) */}
@@ -1350,8 +1347,26 @@ export default function DashboardOverviewPage() {
                 </div>
 
                 {approvalQueue.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '16px 0', color: '#64748B', fontSize: '0.78rem' }}>
-                    All posts in queue are reviewed!
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '28px 16px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(255, 255, 255, 0.07)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle2 size={24} color="#10B981" style={{ opacity: 0.8 }} />
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#F1F5F9' }}>
+                      Approval Queue is Empty
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                      All caught up! No pending posts awaiting your review.
+                    </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
